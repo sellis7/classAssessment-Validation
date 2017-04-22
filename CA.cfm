@@ -1,5 +1,5 @@
-<!--- NOTE: Second modification of the page for more responsive behavior,
- but required adapting of validation code, and some cleanup --->
+<!--- NOTE: Last modification of file once additional conditional variables were added,
+ with some reworking of form validation, and cleanup/commenting out of code with unwanted behavior results --->
 
 <!--- pagebuilder include --->
 
@@ -48,9 +48,9 @@
 					first_name,
 					last_name,
 					isnull(min_score_require_input, 0) AS min_score_require_input
-		FROM		ca,stu_registration,
-					assessment,
-					stu_ca left outer join contact on
+		FROM		ca,stu_registration WITH (NOLOCK),
+					assessment WITH (NOLOCK),
+					stu_ca WITH (NOLOCK) left outer join contact WITH (NOLOCK) on
 						fkey_inst = key_contact
 		WHERE		stu_ca.fkey_ca = ca.key_ca
 					and ca.fkey_assessment = assessment.key_assessment
@@ -84,27 +84,22 @@
 	<cfquery name="qStudentInfo" datasource="#db.connect#" timeout="#db.timeout#">
 		SELECT	fkey_reg,
 					contact.last_name,
-					contact.first_name, stu_registration.fkey_course
-		FROM		stu_CA
-					INNER JOIN stu_registration ON
+					contact.first_name, stu_registration.fkey_course,requires_assessment ,rtrim(course_id) as course_id,rtrim(course_name) as course_name
+		FROM		stu_CA with (nolock)
+					INNER JOIN stu_registration with (nolock) ON
 						fkey_reg = key_reg
-					INNER JOIN student ON
+					INNER JOIN student with (nolock) ON
 						fkey_student = key_student
-					INNER JOIN contact ON
+					INNER JOIN contact with (nolock) ON
 						fkey_contact = key_contact
+					join course_core_data with (nolock) on stu_registration.fkey_course=key_course
 		WHERE		key_stu_CA = #THISSTUCA#
 	</cfquery>
 
-	<CFQUERY name="crsInfo" datasource="#db.connect#"  timeout="#db.timeout#">
-		SELECT	top 1 rtrim(course_id) as course_id,
-					rtrim(course_name) as course_name
-		FROM		course_core_data
-		WHERE		key_course = #qStudentInfo.fkey_course#
-	</CFQUERY>
 
 	<CFQUERY name="cnt" datasource="#db.connect#"  timeout="#db.timeout#">
 		SELECT	*
-		FROM		stu_CA_q
+		FROM		stu_CA_q with (nolock)
 		WHERE		fkey_stu_CA = #THISSTUCA#
 	</CFQUERY>
 
@@ -113,7 +108,6 @@
 
 	<SCRIPT type="text/Javascript">
 		function checkEntries(num) {
-			//var i = 0;
 			var entry = '';
 
 			if (num > 1) {
@@ -158,72 +152,45 @@
 		}
 
 		function validateForm(num){
-			// **** ORIGINAL CODE var curr_key_CA_ans = 0;
-			// var selected_ans_no = 0;
-			// var min_score_require_input = <!--- <cfoutput>#caname.min_score_require_input#</cfoutput> --->;
-			// $('.commentSpan').css("background-color", "");
-			<!--- <cfoutput query="listOfAllQ">
-				curr_key_CA_ans = $('input[name=ansGroup_<cfoutput>#listOfAllQ.fkey_CA_q#</cfoutput>]:checked').val();
-				selected_ans_no = $('##ansNo_<cfoutput>#listOfAllQ.fkey_CA_q#</cfoutput>_' + key_CA_ans).val();
-				if(selected_ans_no < min_score_require_input){
-					$('##commentSpan_<cfoutput>#listOfAllQ.fkey_CA_q#</cfoutput>').css("background-color", "##F3F693");
-				}
-			</cfoutput> --->
-			//edit comments so it can be processed by apply page...
-			// checkEntries(num);
-			//return true; ****** END OF ORIGINAL CODE
+ 			var isok = true;
+			if (<CFOUTPUT>#qStudentInfo.requires_assessment#</CFOUTPUT> == 1) {
+				isok = checkAll();
+			}
 
+			if (isok){
+				var elementCt = 0;
 
-			var elementCt = 0;
-			$("textarea").each(function (){
-				var tArea = this;
-				if(tArea.required && (tArea.value == "" || tArea.value.includes("<Comments>"))){
-					elementCt++;
-				}
-			});
-
-			if(elementCt != 0){ // if count incremented due to incomplete required textareas
-				var x = document.querySelectorAll("span.submit-warning");
-				// if there are no current warnings, create them
-				if(x.length != 2 ){
-					//$("textarea").each(function (){ BEHAVIOR NOW PROBABLY NOT NEEDED (S.E.)
-						//var tArea = this;
-						//if(tArea.required && (tArea.value == "" || tArea.value.includes("<Comments>"))){
-							//var warningTxt = document.createElement('span');
-							//warningTxt.innerText = "Required field";
-							//warningTxt.className = "submit-warning-incomplete";
-							//tArea.parentNode.appendChild(warningTxt);
-						//}
-					//});
-					var showWarning = document.querySelectorAll('input.btn');
-					for(i=0; i < showWarning.length; i++){
-						var warningTxt = document.createElement('span');
-						warningTxt.innerText = "Please complete highlighted fields";
-						warningTxt.className = "submit-warning";
-						showWarning[i].parentNode.appendChild(warningTxt);
+				$("textarea").each(function (){
+					var tArea = this;
+					if(tArea.required && (tArea.value == "" || tArea.value.includes("<Comments>"))){
+						elementCt++;
 					}
-				}
-				elementCt = 0;
-				return false;
-			} else {
-				checkEntries(num);
-				return true;
+				});
+					if(elementCt != 0){ // if count incremented due to incomplete required textareas
+						var x = document.querySelectorAll("span.submit-warning");
+						// if there are no current warnings, create them
+						if(x.length != 2 ){
+
+							var showWarning = document.querySelectorAll('input.btn');
+							for(i=0; i < showWarning.length; i++){
+								var warningTxt = document.createElement('span');
+								warningTxt.innerText = "Please complete highlighted fields";
+								warningTxt.className = "submit-warning";
+								showWarning[i].parentNode.appendChild(warningTxt);
+							}
+						}
+						elementCt = 0;
+						return false;
+					} else {
+						checkEntries(num) ;
+						return true;
+
+					}
 
 			}
 			return false;
-		}
+	 	}
 
-		$(document).on("change", "input[type=radio]", function() {
-			// checks value of radio btn & if comment field is required
-			var min_score = <cfoutput>#caname.min_score_require_input#</cfoutput>;
-			var qGroup = this.name.replace(/^[^_]*_/,"");
-			var qID = "commentSpan__" + qGroup;
-			if($(this).next().val() <= min_score){
-				$('#'+qID+' textarea').css("background-color", "##F3F693").prop('required', true);
-			} else {
-				$('#'+qID+' textarea').css("background-color", "").prop('required', false);
-			}
-		});
 
 	</SCRIPT>
 
@@ -231,7 +198,7 @@
 
 <cfoutput>#caname.assessment_header#</cfoutput>
 
-<FORM name="form1" id="form1" action="../pagebuilder/showPage.cfm?pagedef=caSubmit&<CFOUTPUT>#URLTOKEN#</CFOUTPUT>" method="post">
+<FORM name="form1" id="form1" action="../pagebuilder/showPage.cfm?pagedef=<CFOUTPUT>#url.pagedef#&sca=#THISSTUCA#&#URLTOKEN#</CFOUTPUT>" method="post">
 
 <style>
     div.pageHeader{}
@@ -245,7 +212,7 @@
 	<CFOUTPUT>
 	<h3>#caname.assessment_name#</h3>
 	<div class="headerData">
-		<label>@GETMSG(APP_Course):</label><span>#crsInfo.course_name#</span>
+		<label>@GETMSG(APP_Course):</label><span>#qStudentInfo.course_name#</span>
 		<br>
 		<label>@GETMSG(APP_Student):</label><span>#qStudentInfo.first_name# #qStudentInfo.last_name#</span>
 	</div>
@@ -261,9 +228,9 @@
 	SELECT	distinct stu_CA_q.fkey_CA_obj,
 				rtrim(objective) as objective,
 				obj_no
-	FROM		stu_CA_q,
-				CA_obj_q_map,
-				CA_obj
+	FROM		stu_CA_q WITH (NOLOCK),
+				CA_obj_q_map WITH (NOLOCK),
+				CA_obj WITH (NOLOCK)
 	WHERE		stu_CA_q.fkey_CA_obj = CA_obj_q_map.fkey_CA_obj
 				and CA_obj_q_map.fkey_CA_obj = key_CA_obj
 				and fkey_stu_CA = #THISSTUCA#
@@ -281,8 +248,8 @@
 		<CFQUERY name="q" datasource="#db.connect#"  timeout="#db.timeout#">
 			SELECT		fkey_CA_q,ans_text,fkey_ca_ans,
 						rtrim(question) as question
-			FROM		CA_q,
-						stu_CA_q
+			FROM		CA_q WITH (NOLOCK),
+						stu_CA_q WITH (NOLOCK)
 			WHERE 		fkey_CA_q = key_CA_q
 						and fkey_CA_obj = #obj.fkey_CA_obj#
 						and fkey_stu_CA = #THISSTUCA#
@@ -292,7 +259,7 @@
 		<CFQUERY name="numberq" datasource="#db.connect#"  timeout="#db.timeout#">
 			SELECT	1
 			FROM
-						stu_CA_q
+						stu_CA_q WITH (NOLOCK)
 			WHERE
 						fkey_stu_CA = #THISSTUCA#
 		</CFQUERY>
@@ -305,7 +272,7 @@
 			<CFQUERY name="ans" datasource="#db.connect#"  timeout="#db.timeout#">
 				SELECT		key_CA_ans,
 							rtrim(answer) as answer
-				FROM		CA_ans
+				FROM		CA_ans WITH (NOLOCK)
 				WHERE		fkey_CA_q = #q.fkey_CA_q#
 				ORDER BY 	ans_item
 			</CFQUERY>
@@ -322,7 +289,7 @@
 					<!--- Text Entry Answer --->
 					<div id="comment_<CFOUTPUT>#fkey_CA_q#</CFOUTPUT>">
 						<TEXTAREA class="main" name="q_cmt" id="<cfoutput>#ans.key_CA_ans#</cfoutput>-q_cmt" style="width:100%" rows="3"
-						 onkeyup="textLimit(this, 1000);" aria-labelledby="theQuestion-<cfoutput>#q.fkey_CA_q#">#q.ans_text#</cfoutput></TEXTAREA>
+						 onkeyup="textLimit(this, 1000);" aria-labelledby="theQuestion-<cfoutput>#q.fkey_CA_q#" <cfif #qStudentInfo.requires_assessment# EQ 1> required</cfif>>#q.ans_text#</cfoutput></TEXTAREA>
 					</div>
 
 				<CFELSE>
@@ -333,7 +300,7 @@
 							<cfoutput>
 									<data width="30" valign="top" aria-labelledby="#ans.key_CA_ans#-ansGroup_#THIS_Q#">
 
-										<INPUT type="radio" name="ansGroup_#THIS_Q#" id="#ans.key_CA_ans#-ansGroup_#THIS_Q#" value="#ans.key_CA_ans#"
+										<INPUT type="radio" name="ansGroup_#THIS_Q#" id="#ans.key_CA_ans#-ansGroup_#THIS_Q#" value="#ans.key_CA_ans#" class="surveyInput"
 										<CFIF #q.fkey_ca_ans# EQ #ans.key_CA_ans#> Checked</CFIF>
 										onClick="document.form1.a_key<CFIF #TOT# GT 1>[#CTR#-1]</CFIF>.value='#ans.key_CA_ans#';" aria-labelledby="theQuestion-#q.fkey_CA_q#" >
 										<input type="hidden" name="ansNo_#THIS_Q#_#ans.key_CA_ans#" id="ansNo_#THIS_Q#_#ans.key_CA_ans#" value="#ANSNO#" / disabled >
@@ -345,13 +312,19 @@
 						</row>
 					</Z:Table>
 
-					<div id="comment_<CFOUTPUT>#fkey_CA_q#</CFOUTPUT>">
+					<!---NATHAN: extra class on required comments --->
+					<CFIF #caname.min_score_require_input# GT 0>
+						<CFSET cclass="surveyCommentrequired">
+					<CFELSE>
+						<CFSET cclass="surveyComment">
+					</CFIF>
+
+					<div class="<CFOUTPUT>#cclass#</CFOUTPUT>" id="comment_<CFOUTPUT>#fkey_CA_q#</CFOUTPUT>">
 						<CFIF len(trim(q.ans_text)) GT 0>
 							<cfset holder= q.ans_text>
 						<CFELSE>
 							<cfset holder= "@GETMSG(CA_CommentFiller)">
 						</CFIF>
-
 
 						<cfoutput>
 							<label>Comments:&nbsp</label><span id="commentSpan__#THIS_Q#" class="commentSpan"><TEXTAREA class="main" name="q_cmt" id="#ans.key_CA_ans#-q_cmt" style="width: 100%" rows="3" onkeyup="textLimit(this, 1000);" onFocus="if(this.value==this.defaultValue)this.value='';" onblur="if(this.value=='')this.value=this.defaultValue;"><!--- <CFIF len(trim(#q.ans_text#)) GT 0><CFOUTPUT>#q.ans_text#</CFOUTPUT><CFELSE>@GETMSG(CA_CommentFiller)</CFIF> ---><cfoutput>#holder#</cfoutput></TEXTAREA></span>
@@ -374,6 +347,64 @@
 
 </FORM>
 
+<script type="text/javascript">
+		//var numFilledOut=0;
+		function checkAll(){
+
+			var all_answered = true;
+
+			$("textarea").each(function (){
+				var tQuest = this;
+				if(tQuest.required && tQuest.value == "") {
+					all_answered = false;
+				} else {
+					$("input:radio").each(function(){
+						var name = $(this).attr("name");
+						if($("input:radio[name="+name+"]:checked").length == 0) {
+							all_answered = false;
+						}
+					});
+
+				}
+
+			});
+			if (all_answered == false) {
+				alert ('You must answer all survey questions.');
+			}
+			return all_answered;
+		}
+
+
+
+
+		//var x=1;
+			//$(':radio:checked').each(function(){
+			   //numFilledOut=numFilledOut+1;
+			//});
+
+			//if (numFilledOut < num ){
+				//alert ('You must answer all survey questions.');
+				//return false;
+			//}
+
+			//return true;
+		//}
+
+
+
+			$(document).on("change", "input[type=radio]", function() {
+				// checks value of radio btn & if comment field is required
+				var min_score = <cfoutput>#caname.min_score_require_input#</cfoutput>;
+				var qGroup = this.name.replace(/^[^_]*_/,"");
+				var qID = "commentSpan__" + qGroup;
+				if($(this).next().val() <= min_score){
+					$('#'+qID+' textarea').css("background-color", "##F3F693").prop('required', true);
+				} else {
+					$('#'+qID+' textarea').css("background-color", "").prop('required', false);
+				}
+			});
+
+</script>
 </CFIF>
 
 <CFCATCH>
