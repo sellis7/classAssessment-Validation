@@ -1,6 +1,6 @@
-## Student survey form validation
+## Class Assessment form validation
 
-Established a validation of a student-submitted survey offered once a student completes 
+Established a validation of a student-submitted assessment offered once a student completes 
 a course. This is within a commercially-used learning management system mostly developed 
 using ColdFusion. There were 3 modifications of the file, in total. Alterations were needed 
 due to the initial structure of the layout going from a basic table to a more responsive-styled 
